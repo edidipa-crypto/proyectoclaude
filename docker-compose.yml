@@ -1,0 +1,31 @@
+# Despliegue en Coolify: crear un recurso "Docker Compose" apuntando a este repo.
+# Coolify inyecta las variables definidas en su UI y enruta el dominio al puerto 3000
+# (configurar el dominio en el servicio "app"; SERVICE_FQDN_APP_3000 lo hace automático).
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+    image: dieselpro-dashboard:latest
+    restart: unless-stopped
+    environment:
+      - SERVICE_FQDN_APP_3000
+      - NODE_ENV=production
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - DIAN_WEBHOOK_SECRET=${DIAN_WEBHOOK_SECRET}
+      - BILLING_API_TOKEN=${BILLING_API_TOKEN}
+      - N8N_BILLING_WEBHOOK_URL=${N8N_BILLING_WEBHOOK_URL:-}
+      - DIAN_ENVIRONMENT=${DIAN_ENVIRONMENT:-habilitacion}
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
