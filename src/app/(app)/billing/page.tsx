@@ -3,7 +3,9 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DIAN_STATUS } from "@/lib/constants";
+import { NoAccess } from "@/components/layout/no-access";
 import { getInvoices, getWorkOrders } from "@/lib/data";
+import { userWithAccess } from "@/lib/session";
 import { formatCOP, formatDate } from "@/lib/utils";
 
 export const metadata = { title: "Facturación DIAN · DieselPro" };
@@ -15,7 +17,10 @@ const FLOW = [
 ];
 
 export default async function BillingPage() {
-  const [invoices, workOrders] = await Promise.all([getInvoices(), getWorkOrders()]);
+  const user = await userWithAccess("billing");
+  if (!user) return <NoAccess />;
+  const [allInvoices, workOrders] = await Promise.all([getInvoices(), getWorkOrders()]);
+  const invoices = allInvoices.slice(0, 40);
   const woById = new Map(workOrders.map((w) => [w.id, w]));
 
   return (

@@ -12,6 +12,8 @@ type BadgeVariant = "default" | "secondary" | "destructive" | "outline" | "succe
 export const WORK_ORDER_STATUS: Record<WorkOrderStatus, { label: string; variant: BadgeVariant }> = {
   recibida: { label: "Recibida", variant: "outline" },
   diagnostico: { label: "Diagnóstico", variant: "info" },
+  cotizada: { label: "Cotización enviada", variant: "warning" },
+  aprobada: { label: "Aprobada por cliente", variant: "info" },
   en_reparacion: { label: "En reparación", variant: "default" },
   esperando_repuestos: { label: "Esperando repuestos", variant: "warning" },
   en_tercero: { label: "En tercero", variant: "warning" },
@@ -33,6 +35,7 @@ export const PROVIDER_TYPE: Record<ThirdPartyProviderType, string> = {
   reparacion_turbos: "Reparación de turbos",
   radiadores: "Radiadores",
   electronica: "Electrónica / ECM",
+  repuestos: "Proveedor de repuestos",
 };
 
 export const THIRD_PARTY_STATUS: Record<ThirdPartyJobStatus, { label: string; variant: BadgeVariant }> = {
@@ -58,5 +61,6 @@ export const INVENTORY_CATEGORY: Record<InventoryItem["category"], string> = {
   turbos: "Turbos",
   filtros: "Filtros",
   sensores: "Sensores / válvulas",
-  empaques: "Empaques",
+  empaques: "Empaques y kits de motor",
+  lubricantes: "Lubricantes y refrigerantes",
 };

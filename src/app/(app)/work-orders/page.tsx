@@ -1,14 +1,20 @@
-import { ClipboardList, Clock, Truck, Wrench } from "lucide-react";
+import Link from "next/link";
+import { ClipboardList, Clock, Plus, Truck, Wrench } from "lucide-react";
 
 import { KpiCard } from "@/components/dashboard/kpi-card";
+import { NoAccess } from "@/components/layout/no-access";
 import { PageHeader } from "@/components/layout/page-header";
+import { Button } from "@/components/ui/button";
 import { WorkOrdersTable } from "@/components/work-orders/work-orders-table";
 import { getWorkOrders } from "@/lib/data";
+import { userWithAccess } from "@/lib/session";
 import { formatCOP, workOrderTotal } from "@/lib/utils";
 
 export const metadata = { title: "Órdenes de Trabajo · DieselPro" };
 
 export default async function WorkOrdersPage() {
+  const user = await userWithAccess("work-orders");
+  if (!user) return <NoAccess />;
   const orders = await getWorkOrders();
 
   const open = orders.filter((o) => !["entregada", "facturada"].includes(o.status));
@@ -21,6 +27,13 @@ export default async function WorkOrdersPage() {
       <PageHeader
         title="Órdenes de trabajo"
         description="Vehículos pesados en taller: tractocamiones, volquetas, buses y maquinaria."
+        actions={
+          <Button asChild>
+            <Link href="/work-orders/new">
+              <Plus /> Nueva OT
+            </Link>
+          </Button>
+        }
       />
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard title="OTs abiertas" value={String(open.length)} icon={ClipboardList} hint={`de ${orders.length} registradas`} />

@@ -1,20 +1,32 @@
-# DieselPro · Dashboard financiero para centro de servicio diésel
+# DieselPro · Plataforma para centro de servicio diésel
 
-MVP de gestión y análisis financiero para un taller especializado 100% en motores diésel
-(inyección common rail, bombas de alta presión, turbos, reparación de motor).
+Gestión de un taller especializado 100% en motores diésel (inyección common rail, bombas de
+alta presión, turbos, reparación de motor): órdenes de trabajo, clientes y vehículos,
+inventario con kárdex, terceros, facturación DIAN, cartera, cuentas por pagar y finanzas.
+
+**Estado:** Fase 0 — todas las pantallas funcionan sobre **datos de prueba en memoria**
+(`src/lib/seed.ts`), con roles y permisos. La base de datos real (Supabase) llega en la Fase 1.
 
 **Stack:** Next.js 14 (App Router) · React 18 · TypeScript · Tailwind CSS · shadcn/ui ·
-Recharts · TanStack Table · Supabase (PostgreSQL) · Docker (Coolify).
+Recharts · TanStack Table · zod · Vitest · Supabase (PostgreSQL) · Docker (Coolify).
 
 ## Rutas
 
-| Ruta | Descripción |
-|---|---|
-| `/dashboard` | P&L: KPIs (ingresos, costos diésel, costos terceros, margen bruto), barras ingresos vs egresos, dona de costos, estado de resultados. Filtro 3/6/12 meses. |
-| `/work-orders` | Data Table (shadcn + TanStack) de OTs de vehículos pesados: búsqueda, filtro por estado, orden y paginación. |
-| `/inventory` | Inventario diésel (inyectores, bombas CP3, turbos, filtros) con alertas de stock mínimo. |
-| `/third-party` | Trabajos tercerizados (laboratorios de inyección, rectificadoras, turbos) enlazados a OTs; modal de registro. |
-| `/billing` | Estado de las facturas electrónicas DIAN. |
+| Ruta | Descripción | Roles |
+|---|---|---|
+| `/login` | Entrada con un usuario de prueba por rol (Fase 1: Supabase Auth). | todos |
+| `/dashboard` | P&L por mes cerrado calculado desde OTs entregadas y gastos: KPIs, ingresos vs egresos, dona de costos, estado de resultados. Filtro 3/6/12 meses. | admin, contabilidad |
+| `/technician` | Vista móvil del técnico: sus OTs abiertas. | técnico, admin |
+| `/work-orders` | Tabla de OTs (búsqueda, filtro, orden, paginación) y botón de nueva OT. | admin, asesor |
+| `/work-orders/[id]` | Detalle: recepción, cotización por líneas (mano de obra, repuestos, terceros), IVA, retenciones, rentabilidad, envíos a terceros, cambio de estado e historial. | admin, asesor, técnico asignado |
+| `/clients`, `/clients/[id]`, `/vehicles/[id]` | Clientes (NIT con DV), flota, horómetro en maquinaria e historial por vehículo. | admin, asesor, contabilidad |
+| `/inventory`, `/inventory/[id]` | Inventario con costo promedio ponderado, "qué pedir" y kárdex. | todos |
+| `/third-party` | Trabajos tercerizados enlazados a OTs; modal de registro. | admin, asesor, contabilidad |
+| `/billing` | Estado de las facturas electrónicas DIAN. | admin, contabilidad |
+| `/receivables` | Cartera por edades y por cliente (neto de retenciones). | admin, contabilidad |
+| `/payables` | Cuentas por pagar a proveedores y terceros. | admin, contabilidad |
+| `/expenses` | Gastos generales por mes y categoría. | admin, contabilidad |
+| `/users` | Usuarios y matriz de permisos por rol. | admin |
 | `POST /api/billing/emit` | Emisión de factura desde una OT (n8n → app). |
 | `POST /api/dian/webhook` | Recepción de estados DIAN (n8n → app). |
 | `GET /api/health` | Healthcheck para Docker/Coolify. |
@@ -30,10 +42,18 @@ src/
     dashboard/         # KPIs y gráficos (Recharts)
     work-orders/       # columnas y tabla de OTs
     third-party/       # panel y modal de terceros
+    clients/           # formulario de cliente
+    forms/             # campos de formulario compartidos
+  app/actions.ts       # Server Actions (escrituras), validadas con zod
   lib/
     supabase/          # clientes browser / server / admin (service role)
-    data.ts            # capa de datos (hoy mocks, lista para Supabase)
-    mock-data.ts       # datos de demostración realistas (COP)
+    data.ts            # capa de datos (hoy datos de prueba en memoria, lista para Supabase)
+    seed.ts            # datos de prueba realistas y determinísticos (fechas relativas a hoy)
+    money.ts           # IVA, retenciones, márgenes, costo promedio, kárdex, P&L, cartera
+    validation.ts      # esquemas zod compartidos formulario/servidor, DV del NIT
+    permissions.ts     # qué puede ver y hacer cada rol; flujo de estados de la OT
+    session.ts         # sesión de prueba (Fase 1: Supabase Auth)
+    dates.ts           # fechas en America/Bogota
   types/               # tipos de dominio
 supabase/migrations/   # esquema SQL inicial (tablas, enums, vista monthly_pnl, RLS)
 ```
@@ -41,13 +61,15 @@ supabase/migrations/   # esquema SQL inicial (tablas, enums, vista monthly_pnl, 
 ## Desarrollo local
 
 ```bash
-cp .env.example .env.local   # completar variables
 npm install
 npm run dev                  # http://localhost:3000
+npm test                     # pruebas de cálculos de dinero, validaciones y datos de prueba
+npm run typecheck && npm run lint && npm run build
 ```
 
-Sin variables de Supabase la app funciona en **modo demo** con datos mock; las API routes
-validan y responden con `persisted: false`.
+En la Fase 0 no hace falta `.env.local`: la app corre con datos de prueba en memoria (se
+reinician al reiniciar el servidor). Las API routes validan y responden con `persisted: false`
+mientras no haya variables de Supabase.
 
 Para crear el esquema: ejecutar `supabase/migrations/0001_initial_schema.sql` en el SQL editor
 de Supabase (o `supabase db push`).

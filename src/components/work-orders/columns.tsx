@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { Column, ColumnDef } from "@tanstack/react-table";
 import { ArrowUpDown } from "lucide-react";
 
@@ -27,7 +28,11 @@ export const workOrderColumns: ColumnDef<WorkOrder>[] = [
   {
     accessorKey: "code",
     header: ({ column }) => <SortHeader column={column} title="OT" />,
-    cell: ({ row }) => <span className="whitespace-nowrap font-mono text-xs font-semibold">{row.original.code}</span>,
+    cell: ({ row }) => (
+      <Link href={`/work-orders/${row.original.id}`} className="whitespace-nowrap font-mono text-xs font-semibold text-primary hover:underline">
+        {row.original.code}
+      </Link>
+    ),
   },
   {
     id: "vehicle",
@@ -44,7 +49,8 @@ export const workOrderColumns: ColumnDef<WorkOrder>[] = [
             {v.brand} {v.model}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {v.engine} · {v.year} · {v.odometerKm.toLocaleString("es-CO")} km
+            {v.engine} · {v.year} ·{" "}
+            {v.type === "Maquinaria" ? `${(v.hourMeter ?? 0).toLocaleString("es-CO")} h` : `${v.odometerKm.toLocaleString("es-CO")} km`}
           </p>
         </div>
       );

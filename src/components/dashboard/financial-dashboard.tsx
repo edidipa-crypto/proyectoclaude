@@ -5,7 +5,7 @@ import { DollarSign, Fuel, Percent, Truck } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getCostDistribution, getFinancialSummary, monthOverMonth } from "@/lib/mock-data";
+import { getCostDistribution, getFinancialSummary, monthOverMonth } from "@/lib/finance";
 import { cn, formatCOP, formatPercent } from "@/lib/utils";
 import type { MonthlyFinancials } from "@/types";
 import { CostDistributionChart } from "./cost-distribution-chart";

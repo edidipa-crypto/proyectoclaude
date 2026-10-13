@@ -3,18 +3,20 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Fuel, Menu, X } from "lucide-react";
+import { Fuel, LogOut, Menu, X } from "lucide-react";
 
+import { signOut } from "@/app/actions";
 import { NAV_ITEMS } from "@/lib/navigation";
+import type { Section } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
-function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
+function NavLinks({ allowed, onNavigate }: { allowed: Section[]; onNavigate?: () => void }) {
   const pathname = usePathname();
 
   return (
     <nav className="flex flex-col gap-1 px-3" aria-label="Navegación principal">
-      {NAV_ITEMS.map((item) => {
+      {NAV_ITEMS.filter((item) => allowed.includes(item.section)).map((item) => {
         const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
         const Icon = item.icon;
         return (
@@ -53,7 +55,33 @@ function Brand() {
   );
 }
 
-export function Sidebar() {
+function UserBox({ user }: { user: { name: string; role: string } }) {
+  return (
+    <div className="mt-auto border-t border-white/10 px-4 py-4">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0 px-2">
+          <p className="truncate text-sm font-medium text-white">{user.name}</p>
+          <p className="text-xs text-sidebar-foreground/60">{user.role}</p>
+        </div>
+        <form action={signOut}>
+          <Button
+            type="submit"
+            variant="ghost"
+            size="icon"
+            className="text-sidebar-foreground/70 hover:bg-white/10 hover:text-white"
+            aria-label="Cambiar de usuario"
+            title="Cambiar de usuario"
+          >
+            <LogOut />
+          </Button>
+        </form>
+      </div>
+      <p className="mt-3 px-2 text-xs text-sidebar-foreground/50">Datos de prueba · se reinician al reiniciar</p>
+    </div>
+  );
+}
+
+export function Sidebar({ allowed, user }: { allowed: Section[]; user: { name: string; role: string } }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
@@ -62,12 +90,10 @@ export function Sidebar() {
   return (
     <>
       {/* Escritorio */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col bg-sidebar text-sidebar-foreground md:flex">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col overflow-y-auto bg-sidebar text-sidebar-foreground md:flex">
         <Brand />
-        <NavLinks />
-        <div className="mt-auto border-t border-white/10 px-6 py-4 text-xs text-sidebar-foreground/50">
-          MVP · Datos de demostración
-        </div>
+        <NavLinks allowed={allowed} />
+        <UserBox user={user} />
       </aside>
 
       {/* Móvil: barra superior + cajón */}
@@ -90,9 +116,10 @@ export function Sidebar() {
       {open && (
         <div className="fixed inset-0 z-40 md:hidden">
           <div className="absolute inset-0 bg-black/60" onClick={() => setOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 flex w-72 flex-col bg-sidebar text-sidebar-foreground shadow-xl">
+          <aside className="absolute inset-y-0 left-0 flex w-72 flex-col overflow-y-auto bg-sidebar text-sidebar-foreground shadow-xl">
             <Brand />
-            <NavLinks onNavigate={() => setOpen(false)} />
+            <NavLinks allowed={allowed} onNavigate={() => setOpen(false)} />
+            <UserBox user={user} />
           </aside>
         </div>
       )}
