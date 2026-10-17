@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # ============================================================================
-# DieselPro · Next.js 14 (standalone) — imagen multi-stage para Coolify
+# DieselPro · Next.js 14 (standalone) — imagen multi-stage para Railway / Coolify
 # ============================================================================
 ARG NODE_VERSION=20-alpine
 
@@ -9,7 +9,8 @@ FROM node:${NODE_VERSION} AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
+# Sin cache mount: Railway exige un formato propio de id y fallaría el build.
+RUN npm ci --no-audit --no-fund
 
 # --- 2. Build ----------------------------------------------------------------
 FROM node:${NODE_VERSION} AS builder
