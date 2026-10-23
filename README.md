@@ -113,6 +113,17 @@ Responde `202` con el documento normalizado (líneas, subtotales por tarifa de I
 
 Estados: `pendiente | enviado | aceptado | aceptado_con_notificaciones | rechazado | error`.
 
+## Despliegue en Railway (maqueta)
+
+`railway.json` le indica a Railway que construya con el `Dockerfile` y vigile `/api/health`.
+
+1. Railway → **New Project** → **Deploy from GitHub repo** → este repositorio.
+2. **Settings → Source**: rama `fase-0-integracion`.
+3. **Variables**: `DEMO_USER` y `DEMO_PASSWORD` (el navegador pedirá esa clave antes de entrar).
+4. **Settings → Networking → Generate Domain**.
+
+La maqueta guarda los datos de prueba en memoria: se reinician en cada despliegue o reinicio.
+
 ## Despliegue en Coolify
 
 1. Nuevo recurso → **Docker Compose** → este repositorio (`docker-compose.yml`).
