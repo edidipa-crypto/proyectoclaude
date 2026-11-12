@@ -21,10 +21,12 @@ export default async function TechnicianPage({ searchParams }: { searchParams: {
   const user = await userWithAccess("technician");
   if (!user) return <NoAccess />;
   const [records, vehicles, clients, users] = await Promise.all([getWorkOrderRecords(), getVehicles(), getClients(), getUsers()]);
-  const technicians = users.filter((u) => u.role === "tecnico");
-  // El administrador puede ver la pantalla de cualquier técnico
-  const technicianId = user.role === "admin" ? searchParams.tecnico ?? technicians[0].id : user.id;
-  const technician = users.find((u) => u.id === technicianId)!;
+  // En el taller el dueño (administrador) también es técnico
+  const technicians = users.filter((u) => u.role === "tecnico" || u.role === "admin");
+  // El administrador ve sus propios trabajos y puede consultar los de cualquier técnico
+  const requested = user.role === "admin" ? technicians.find((t) => t.id === searchParams.tecnico) : undefined;
+  const technician = requested ?? user;
+  const technicianId = technician.id;
   const mine = records
     .filter((w) => w.technicianId === technicianId && !["entregada", "facturada"].includes(w.status))
     .sort((a, b) => ORDER.indexOf(a.status) - ORDER.indexOf(b.status));

@@ -20,7 +20,8 @@ export default async function NewWorkOrderPage({ searchParams }: { searchParams:
       reading: v.type === "Maquinaria" ? v.hourMeter ?? 0 : v.odometerKm,
       isMachine: v.type === "Maquinaria",
     }));
-  const technicians = users.filter((u) => u.role === "tecnico" && u.active).map((u) => ({ id: u.id, name: u.name }));
+  // El dueño (administrador) también trabaja como técnico
+  const technicians = users.filter((u) => (u.role === "tecnico" || u.role === "admin") && u.active).map((u) => ({ id: u.id, name: u.name }));
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">

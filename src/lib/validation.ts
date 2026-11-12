@@ -41,6 +41,25 @@ export const clientSchema = z
 
 export const PLATE_PATTERN = /^[A-Z]{3}\d{3}$|^[A-Z]{3}\d{2}[A-Z]$/;
 
+export const VEHICLE_TYPES = ["Tractocamión", "Volqueta", "Bus", "Camión", "Maquinaria"] as const;
+
+export const vehicleSchema = z.object({
+  clientId: required("El cliente"),
+  plate: z
+    .string()
+    .trim()
+    .transform((p) => p.toUpperCase().replace(/[\s-]/g, ""))
+    .pipe(z.string().min(3, "Escribe la placa o, en maquinaria, un código interno").max(12)),
+  type: z.enum(VEHICLE_TYPES),
+  brand: required("La marca").max(40),
+  model: required("El modelo").max(60),
+  engine: required("El motor").max(60),
+  year: z.coerce.number().int("Año sin decimales").min(1950, "Año no válido").max(2100, "Año no válido"),
+  reading: z.coerce.number().int("Sin decimales").min(0).max(5_000_000),
+});
+
+export type VehicleInput = z.infer<typeof vehicleSchema>;
+
 export const newWorkOrderSchema = z.object({
   vehicleId: required("El vehículo"),
   technicianId: required("El técnico"),

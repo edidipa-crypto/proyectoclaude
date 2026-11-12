@@ -73,8 +73,15 @@ export default async function ClientPage({ params }: { params: { id: string } })
           </CardContent>
         </Card>
         <Card className="lg:col-span-2">
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0">
             <CardTitle>Vehículos y máquinas ({fleet.length})</CardTitle>
+            {canOpenOrders && (
+              <Button asChild size="sm" variant="outline">
+                <Link href={`/clients/${client.id}/vehicles/new`}>
+                  <Plus /> Agregar vehículo
+                </Link>
+              </Button>
+            )}
           </CardHeader>
           <CardContent className="px-0 pb-2">
             <ul className="divide-y text-sm">

@@ -1,23 +1,30 @@
 import { computeKardex, computeTotals, daysOverdue, outstanding } from "@/lib/money";
 import { lastMonths, monthLabel, monthOf, todayBogota } from "@/lib/dates";
 import { createSeed, type Database } from "@/lib/seed";
+import { sheetsConfig } from "@/lib/sheets/client";
+import { appendRows, loadDatabase, updateRow } from "@/lib/sheets/store";
 import { formatNit } from "@/lib/validation";
-import type { Client, MonthlyFinancials, WorkOrder, WorkOrderPriority, WorkOrderRecord, WorkOrderStatus } from "@/types";
+import type { Client, MonthlyFinancials, Vehicle, WorkOrder, WorkOrderPriority, WorkOrderRecord, WorkOrderStatus } from "@/types";
 
 // ---------------------------------------------------------------------------
-// Capa de acceso a datos. Hoy trabaja sobre los datos de prueba en memoria del
-// servidor (se reinician al apagarlo). En la Fase 1 cada función pasa a consultar
-// Supabase sin tocar las páginas, p. ej.:
-//
-//   const supabase = createClient();
-//   const { data } = await supabase.from("monthly_pnl").select("*");
+// Capa de acceso a datos. Dos modos:
+//  - "sheets": datos reales en Google Sheets, si GOOGLE_SHEETS_ID y la cuenta de
+//    servicio están configuradas.
+//  - "demo": datos de prueba en memoria del servidor (se reinician al apagarlo).
+// Las páginas no saben en qué modo están.
 // ---------------------------------------------------------------------------
 
-const store = globalThis as unknown as { __dieselproDb?: Database };
+const memory = globalThis as unknown as { __dieselproDb?: Database };
 
-function db(): Database {
-  store.__dieselproDb ??= createSeed();
-  return store.__dieselproDb;
+async function db(): Promise<Database> {
+  const config = sheetsConfig();
+  if (config) return loadDatabase(config);
+  memory.__dieselproDb ??= createSeed();
+  return memory.__dieselproDb;
+}
+
+export function dataMode(): "sheets" | "demo" {
+  return sheetsConfig() ? "sheets" : "demo";
 }
 
 export const today = () => todayBogota();
@@ -25,11 +32,11 @@ export const today = () => todayBogota();
 // --- Usuarios ------------------------------------------------------------------
 
 export async function getUsers() {
-  return db().users;
+  return (await db()).users;
 }
 
 export async function getUser(id: string) {
-  return db().users.find((u) => u.id === id);
+  return (await db()).users.find((u) => u.id === id);
 }
 
 // --- Clientes y vehículos --------------------------------------------------------
@@ -39,38 +46,37 @@ export function clientDocument(c: Client) {
 }
 
 export async function getClients() {
-  return db().clients;
+  return (await db()).clients;
 }
 
 export async function getClient(id: string) {
-  return db().clients.find((c) => c.id === id);
+  return (await db()).clients.find((c) => c.id === id);
 }
 
 export async function getVehicles() {
-  return db().vehicles;
+  return (await db()).vehicles;
 }
 
 export async function getVehicle(id: string) {
-  return db().vehicles.find((v) => v.id === id);
+  return (await db()).vehicles.find((v) => v.id === id);
 }
 
 // --- Órdenes de trabajo ----------------------------------------------------------
 
-function toRow(wo: WorkOrderRecord): WorkOrder {
-  const { clients, vehicles, users } = db();
-  const client = clients.find((c) => c.id === wo.clientId)!;
+function toRow(d: Database, wo: WorkOrderRecord): WorkOrder {
+  const client = d.clients.find((c) => c.id === wo.clientId);
   const totals = computeTotals(wo.lines);
   return {
     id: wo.id,
     code: wo.code,
-    clientId: client.id,
-    client: client.name,
-    clientNit: client.idType === "NIT" ? formatNit(client.idNumber, client.dv) : formatNit(client.idNumber),
-    vehicle: vehicles.find((v) => v.id === wo.vehicleId)!,
+    clientId: wo.clientId,
+    client: client?.name ?? "Cliente no encontrado",
+    clientNit: !client ? "" : client.idType === "NIT" ? formatNit(client.idNumber, client.dv) : formatNit(client.idNumber),
+    vehicle: d.vehicles.find((v) => v.id === wo.vehicleId) ?? { id: wo.vehicleId, clientId: wo.clientId, plate: "¿?", brand: "", model: "", engine: "", year: 0, odometerKm: 0, type: "Camión" },
     service: wo.service,
     status: wo.status,
     priority: wo.priority,
-    technician: users.find((u) => u.id === wo.technicianId)?.name ?? "Por asignar",
+    technician: d.users.find((u) => u.id === wo.technicianId)?.name ?? "Por asignar",
     openedAt: wo.openedAt,
     promisedAt: wo.promisedAt,
     laborAmount: totals.byKind.labor,
@@ -81,21 +87,25 @@ function toRow(wo: WorkOrderRecord): WorkOrder {
 
 /** Filas para la tabla de OTs, de la más reciente a la más antigua. */
 export async function getWorkOrders() {
-  return db().workOrders.map(toRow);
+  const d = await db();
+  return d.workOrders.map((wo) => toRow(d, wo));
 }
 
 export async function getWorkOrderRecords() {
-  return db().workOrders;
+  return (await db()).workOrders;
 }
 
 export async function getWorkOrder(id: string) {
-  const d = db();
+  const d = await db();
   const wo = d.workOrders.find((w) => w.id === id);
   if (!wo) return undefined;
+  const client = d.clients.find((c) => c.id === wo.clientId);
+  const vehicle = d.vehicles.find((v) => v.id === wo.vehicleId);
+  if (!client || !vehicle) return undefined;
   return {
     ...wo,
-    client: d.clients.find((c) => c.id === wo.clientId)!,
-    vehicle: d.vehicles.find((v) => v.id === wo.vehicleId)!,
+    client,
+    vehicle,
     technician: d.users.find((u) => u.id === wo.technicianId),
     invoice: d.invoices.find((i) => i.workOrderId === wo.id),
     thirdPartyJobs: d.thirdPartyJobs.filter((j) => j.workOrderId === wo.id),
@@ -106,56 +116,56 @@ export async function getWorkOrder(id: string) {
 // --- Inventario, terceros y proveedores --------------------------------------------
 
 export async function getInventory() {
-  return db().inventory;
+  return (await db()).inventory;
 }
 
 export async function getInventoryItem(id: string) {
-  const item = db().inventory.find((i) => i.id === id);
+  const d = await db();
+  const item = d.inventory.find((i) => i.id === id);
   if (!item) return undefined;
-  return { item, kardex: computeKardex(db().movements.filter((m) => m.itemId === id)) };
+  return { item, kardex: computeKardex(d.movements.filter((m) => m.itemId === id)) };
 }
 
 export async function getProviders() {
-  return db().providers;
+  return (await db()).providers;
 }
 
 export async function getThirdPartyJobs() {
-  return db().thirdPartyJobs;
+  return (await db()).thirdPartyJobs;
 }
 
 export async function getPayables() {
-  const { payables, providers } = db();
-  return payables.map((p) => {
+  const { payables, providers } = await db();
+  return payables.flatMap((p) => {
+    const provider = providers.find((x) => x.id === p.providerId);
+    if (!provider) return [];
     const balance = outstanding(p.amount, p.payments);
-    return { ...p, provider: providers.find((x) => x.id === p.providerId)!, balance, daysOverdue: balance > 0 ? daysOverdue(p.dueDate, today()) : 0 };
+    return [{ ...p, provider, balance, daysOverdue: balance > 0 ? daysOverdue(p.dueDate, today()) : 0 }];
   });
 }
 
 // --- Facturación y cartera ------------------------------------------------------------
 
 export async function getInvoices() {
-  return db().invoices;
+  return (await db()).invoices;
 }
 
 /** Facturas emitidas con su saldo y días de mora. */
 export async function getReceivables() {
-  const { invoices, clients, workOrders } = db();
+  const { invoices, clients, workOrders } = await db();
   return invoices
     .filter((i) => i.number && i.dianStatus !== "rechazado")
-    .map((i) => {
+    .flatMap((i) => {
+      const client = clients.find((c) => c.id === i.clientId);
+      const workOrder = workOrders.find((w) => w.id === i.workOrderId);
+      if (!client || !workOrder) return [];
       const balance = outstanding(i.netPayable, i.payments);
-      return {
-        ...i,
-        client: clients.find((c) => c.id === i.clientId)!,
-        workOrder: workOrders.find((w) => w.id === i.workOrderId)!,
-        balance,
-        daysOverdue: balance > 0 && i.dueDate ? daysOverdue(i.dueDate, today()) : 0,
-      };
+      return [{ ...i, client, workOrder, balance, daysOverdue: balance > 0 && i.dueDate ? daysOverdue(i.dueDate, today()) : 0 }];
     });
 }
 
 export async function getExpenses() {
-  return db().expenses;
+  return (await db()).expenses;
 }
 
 /**
@@ -163,7 +173,7 @@ export async function getExpenses() {
  * y los gastos. La mano de obra es la nómina de técnicos; el resto son gastos generales.
  */
 export async function getMonthlyFinancials(months = 12): Promise<MonthlyFinancials[]> {
-  const { workOrders, expenses } = db();
+  const { workOrders, expenses } = await db();
   const closed = lastMonths(today(), months + 1).slice(0, -1);
   return closed.map((month) => {
     let revenue = 0;
@@ -190,26 +200,40 @@ export async function getMonthlyFinancials(months = 12): Promise<MonthlyFinancia
 // --- Escrituras -------------------------------------------------------------------------
 
 let sequence = 0;
-const newId = (prefix: string) => `${prefix}-n${Date.now().toString(36)}${++sequence}`;
+const newId = (prefix: string) => `${prefix}-${Date.now().toString(36)}${(++sequence).toString(36)}`;
+
+type Plain = Record<string, unknown>;
 
 export async function createClient(data: Omit<Client, "id">) {
-  const client = { ...data, id: newId("cl") };
-  db().clients.unshift(client);
+  const client: Client = { ...data, id: newId("cl") };
+  const config = sheetsConfig();
+  if (config) await appendRows(config, "clients", [client as unknown as Plain]);
+  else (await db()).clients.unshift(client);
   return client;
+}
+
+export async function createVehicle(data: Omit<Vehicle, "id">) {
+  const vehicle: Vehicle = { ...data, id: newId("vh") };
+  const config = sheetsConfig();
+  if (config) await appendRows(config, "vehicles", [vehicle as unknown as Plain]);
+  else (await db()).vehicles.unshift(vehicle);
+  return vehicle;
 }
 
 export async function createWorkOrder(
   data: { vehicleId: string; technicianId: string; odometerKm: number; priority: WorkOrderPriority; symptoms: string },
   userId: string,
 ) {
-  const d = db();
+  const d = await db();
   const vehicle = d.vehicles.find((v) => v.id === data.vehicleId);
   if (!vehicle) throw new Error("Vehículo no encontrado");
-  const last = Math.max(...d.workOrders.map((w) => Number(w.code.slice(-4))));
+  const year = today().slice(0, 4);
+  const last = Math.max(100, ...d.workOrders.filter((w) => w.code.startsWith(`OT-${year}-`)).map((w) => Number(w.code.slice(-4)) || 0));
   const isMachine = vehicle.type === "Maquinaria";
+  const event = { at: new Date().toISOString(), status: "recibida" as const, userId };
   const wo: WorkOrderRecord = {
     id: newId("wo"),
-    code: `OT-${today().slice(0, 4)}-${String(last + 1).padStart(4, "0")}`,
+    code: `OT-${year}-${String(last + 1).padStart(4, "0")}`,
     clientId: vehicle.clientId,
     vehicleId: vehicle.id,
     technicianId: data.technicianId,
@@ -219,23 +243,44 @@ export async function createWorkOrder(
     priority: data.priority,
     openedAt: today(),
     promisedAt: today(),
-    // En maquinaria el campo de lectura es el horómetro
+    // En maquinaria la lectura es el horómetro
     odometerKm: isMachine ? 0 : data.odometerKm,
     ...(isMachine ? { hourMeter: data.odometerKm } : {}),
     lines: [],
-    history: [{ at: new Date().toISOString(), status: "recibida", userId }],
+    history: [event],
   };
-  if (isMachine) vehicle.hourMeter = Math.max(vehicle.hourMeter ?? 0, data.odometerKm);
-  else vehicle.odometerKm = Math.max(vehicle.odometerKm, data.odometerKm);
-  d.workOrders.unshift(wo);
+  const updatedVehicle: Vehicle = isMachine
+    ? { ...vehicle, hourMeter: Math.max(vehicle.hourMeter ?? 0, data.odometerKm) }
+    : { ...vehicle, odometerKm: Math.max(vehicle.odometerKm, data.odometerKm) };
+
+  const config = sheetsConfig();
+  if (config) {
+    const { lines: _l, history: _h, ...row } = wo;
+    await appendRows(config, "workOrders", [row as unknown as Plain]);
+    await appendRows(config, "history", [{ ...event, workOrderId: wo.id }]);
+    await updateRow(config, "vehicles", updatedVehicle as unknown as Plain & { id: string });
+  } else {
+    Object.assign(vehicle, updatedVehicle);
+    d.workOrders.unshift(wo);
+  }
   return wo;
 }
 
 export async function changeWorkOrderStatus(id: string, status: WorkOrderStatus, userId: string, note?: string) {
-  const wo = db().workOrders.find((w) => w.id === id);
+  const d = await db();
+  const wo = d.workOrders.find((w) => w.id === id);
   if (!wo) throw new Error("OT no encontrada");
-  wo.status = status;
-  if (status === "entregada") wo.deliveredAt = today();
-  wo.history.push({ at: new Date().toISOString(), status, userId, ...(note ? { note } : {}) });
-  return wo;
+  const event = { at: new Date().toISOString(), status, userId, ...(note ? { note } : {}) };
+  const updated: WorkOrderRecord = { ...wo, status, ...(status === "entregada" ? { deliveredAt: today() } : {}) };
+
+  const config = sheetsConfig();
+  if (config) {
+    const { lines: _l, history: _h, ...row } = updated;
+    await updateRow(config, "workOrders", row as unknown as Plain & { id: string });
+    await appendRows(config, "history", [{ ...event, workOrderId: id }]);
+  } else {
+    Object.assign(wo, updated);
+    wo.history.push(event);
+  }
+  return updated;
 }

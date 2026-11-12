@@ -60,7 +60,7 @@ export function CostDistributionChart({ data }: { data: CostSlice[] }) {
                 </span>
               </span>
               <span className="shrink-0 text-right tabular-nums">
-                <span className="block font-medium">{formatPercent((s.value / total) * 100)}</span>
+                <span className="block font-medium">{formatPercent(total ? (s.value / total) * 100 : 0)}</span>
                 <span className="text-xs text-muted-foreground">{formatCOP(s.value)}</span>
               </span>
             </li>

@@ -55,7 +55,7 @@ function Brand() {
   );
 }
 
-function UserBox({ user }: { user: { name: string; role: string } }) {
+function UserBox({ user, realData }: { user: { name: string; role: string }; realData: boolean }) {
   return (
     <div className="mt-auto border-t border-white/10 px-4 py-4">
       <div className="flex items-center justify-between gap-2">
@@ -76,12 +76,12 @@ function UserBox({ user }: { user: { name: string; role: string } }) {
           </Button>
         </form>
       </div>
-      <p className="mt-3 px-2 text-xs text-sidebar-foreground/50">Datos de prueba · se reinician al reiniciar</p>
+      <p className="mt-3 px-2 text-xs text-sidebar-foreground/50">{realData ? "Datos reales · Google Sheets" : "Datos de prueba · se reinician al reiniciar"}</p>
     </div>
   );
 }
 
-export function Sidebar({ allowed, user }: { allowed: Section[]; user: { name: string; role: string } }) {
+export function Sidebar({ allowed, user, realData }: { allowed: Section[]; user: { name: string; role: string }; realData: boolean }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
@@ -93,7 +93,7 @@ export function Sidebar({ allowed, user }: { allowed: Section[]; user: { name: s
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col overflow-y-auto bg-sidebar text-sidebar-foreground md:flex">
         <Brand />
         <NavLinks allowed={allowed} />
-        <UserBox user={user} />
+        <UserBox user={user} realData={realData} />
       </aside>
 
       {/* Móvil: barra superior + cajón */}
@@ -119,7 +119,7 @@ export function Sidebar({ allowed, user }: { allowed: Section[]; user: { name: s
           <aside className="absolute inset-y-0 left-0 flex w-72 flex-col overflow-y-auto bg-sidebar text-sidebar-foreground shadow-xl">
             <Brand />
             <NavLinks allowed={allowed} onNavigate={() => setOpen(false)} />
-            <UserBox user={user} />
+            <UserBox user={user} realData={realData} />
           </aside>
         </div>
       )}

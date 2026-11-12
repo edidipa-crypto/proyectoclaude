@@ -113,6 +113,23 @@ Responde `202` con el documento normalizado (líneas, subtotales por tarifa de I
 
 Estados: `pendiente | enviado | aceptado | aceptado_con_notificaciones | rechazado | error`.
 
+## Datos reales en Google Sheets
+
+Con `GOOGLE_SHEETS_ID`, `GOOGLE_SERVICE_ACCOUNT_EMAIL` y `GOOGLE_PRIVATE_KEY` definidas
+(ver `.env.example`), la herramienta guarda y lee todo en una hoja de Google Sheets del Drive
+del taller. Sin ellas usa los datos de prueba en memoria.
+
+- `src/lib/sheets/schema.ts`: una pestaña por tema (Clientes, Vehiculos, OTs, Lineas_OT,
+  Historial_OT, Repuestos, Movimientos_inventario, Proveedores, Trabajos_terceros, Facturas,
+  Pagos_clientes, Cuentas_por_pagar, Pagos_proveedores, Gastos, Usuarios). Encabezados en la
+  fila 1; las columnas se reconocen por nombre, así que se pueden reordenar o agregar columnas propias.
+- La primera vez que se conecta crea las pestañas que falten y los usuarios iniciales.
+- `src/lib/sheets/store.ts`: lectura en bloque con copia de 10 s; toda escritura la invalida.
+- No borres ni renombres los encabezados ni la columna `id`: la herramienta los usa para ubicar cada registro.
+
+Configuración en Google: crear una cuenta de servicio con la API de Google Sheets habilitada,
+descargar su llave JSON y compartir la hoja con el correo de la cuenta como **Editor**.
+
 ## Despliegue en Railway (maqueta)
 
 `railway.json` le indica a Railway que construya con el `Dockerfile` y vigile `/api/health`.

@@ -10,3 +10,8 @@ next-env.d.ts.bak
 npm-debug.log*
 .DS_Store
 .vercel
+
+# Llaves de Google y datos reales del taller: nunca al repositorio
+credenciales/
+*service-account*.json
+datos-taller/
