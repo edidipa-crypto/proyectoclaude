@@ -17,11 +17,12 @@ export type Section =
   | "payables"
   | "expenses"
   | "users"
+  | "import"
   /** Ver costos y márgenes (no es una página) */
   | "costs";
 
 const ACCESS: Record<Role, Section[]> = {
-  admin: ["dashboard", "technician", "work-orders", "clients", "inventory", "third-party", "billing", "receivables", "payables", "expenses", "users", "costs"],
+  admin: ["dashboard", "technician", "work-orders", "clients", "inventory", "third-party", "billing", "receivables", "payables", "expenses", "users", "import", "costs"],
   asesor: ["work-orders", "clients", "inventory", "third-party"],
   tecnico: ["technician", "inventory"],
   contabilidad: ["dashboard", "clients", "inventory", "third-party", "billing", "receivables", "payables", "expenses", "costs"],

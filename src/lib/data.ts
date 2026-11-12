@@ -266,6 +266,38 @@ export async function createWorkOrder(
   return wo;
 }
 
+/** Lo mínimo que necesita la carga de archivos para no duplicar registros. */
+export async function getImportSnapshot() {
+  const d = await db();
+  return {
+    clients: d.clients.map((c) => ({ id: c.id, name: c.name, idNumber: c.idNumber })),
+    vehicles: d.vehicles.map((v) => ({ id: v.id, plate: v.plate, clientId: v.clientId })),
+    users: d.users.map((u) => ({ id: u.id, name: u.name })),
+    workOrderCodes: d.workOrders.map((w) => w.code),
+  };
+}
+
+/** Guarda en bloque lo que preparó la carga de archivos. */
+export async function saveImported(records: { clients: Client[]; vehicles: Vehicle[]; workOrders: WorkOrderRecord[] }) {
+  const config = sheetsConfig();
+  if (config) {
+    const plain = <T,>(list: T[]) => list as unknown as Plain[];
+    if (records.clients.length) await appendRows(config, "clients", plain(records.clients));
+    if (records.vehicles.length) await appendRows(config, "vehicles", plain(records.vehicles));
+    if (records.workOrders.length) {
+      await appendRows(config, "workOrders", records.workOrders.map(({ lines: _l, history: _h, ...w }) => w as unknown as Plain));
+      await appendRows(config, "lines", records.workOrders.flatMap((w) => w.lines.map((l) => ({ ...l, workOrderId: w.id }))));
+      await appendRows(config, "history", records.workOrders.flatMap((w) => w.history.map((h) => ({ ...h, workOrderId: w.id }))));
+    }
+    return;
+  }
+  const d = await db();
+  d.clients.unshift(...records.clients);
+  d.vehicles.unshift(...records.vehicles);
+  d.workOrders.push(...records.workOrders);
+  d.workOrders.sort((a, b) => b.openedAt.localeCompare(a.openedAt) || b.code.localeCompare(a.code));
+}
+
 export async function changeWorkOrderStatus(id: string, status: WorkOrderStatus, userId: string, note?: string) {
   const d = await db();
   const wo = d.workOrders.find((w) => w.id === id);

@@ -5,6 +5,7 @@
 // ---------------------------------------------------------------------------
 
 import { computeKardex, type StockMovement } from "@/lib/money";
+import { parseNumber } from "@/lib/parse";
 import type { Database } from "@/lib/seed";
 import type {
   AppUser,
@@ -150,14 +151,7 @@ export function decodeCell(value: unknown, kind: Kind): unknown {
   }
 }
 
-/** Números como los escribe una persona en Colombia: "$ 1.500.000", "2,5". */
-export function parseNumber(value: unknown): number {
-  if (typeof value === "number") return value;
-  const text = String(value).replace(/[$\s]/g, "");
-  const normalized = text.includes(",") ? text.replace(/\./g, "").replace(",", ".") : /^\d{1,3}(\.\d{3})+$/.test(text) ? text.replace(/\./g, "") : text;
-  const n = Number(normalized);
-  return Number.isFinite(n) ? n : 0;
-}
+export { parseNumber };
 
 function getPath(obj: Record<string, unknown>, path: string): unknown {
   return path.split(".").reduce<unknown>((o, k) => (o as Record<string, unknown> | undefined)?.[k], obj);

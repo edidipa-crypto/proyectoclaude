@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Package,
   Truck,
+  Upload,
   UserCog,
   Users,
   Wallet,
@@ -34,6 +35,7 @@ export const NAV_ITEMS: NavItem[] = [
   { title: "Cartera", href: "/receivables", icon: HandCoins, description: "Cuentas por cobrar", section: "receivables" },
   { title: "Cuentas por pagar", href: "/payables", icon: Wallet, description: "Proveedores y terceros", section: "payables" },
   { title: "Gastos", href: "/expenses", icon: Banknote, description: "Gastos generales del taller", section: "expenses" },
+  { title: "Cargar datos", href: "/import", icon: Upload, description: "Subir clientes, vehículos y trabajos desde Excel", section: "import" },
   { title: "Usuarios y roles", href: "/users", icon: UserCog, description: "Accesos al sistema", section: "users" },
 ];
 

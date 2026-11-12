@@ -4,11 +4,66 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { changeWorkOrderStatus, createClient, createVehicle, createWorkOrder, getClient, getClients, getUser, getVehicles, getWorkOrder } from "@/lib/data";
+import { z } from "zod";
+
+import {
+  changeWorkOrderStatus,
+  createClient,
+  createVehicle,
+  createWorkOrder,
+  getClient,
+  getClients,
+  getImportSnapshot,
+  getUser,
+  getVehicles,
+  getWorkOrder,
+  saveImported,
+} from "@/lib/data";
+import { MAX_ROWS, planImport } from "@/lib/import";
 import { can, HOME_BY_ROLE, NEXT_STATUSES, technicianCanMoveTo } from "@/lib/permissions";
 import { currentUser, SESSION_COOKIE } from "@/lib/session";
 import { clientSchema, fieldErrors, newWorkOrderSchema, vehicleSchema } from "@/lib/validation";
 import type { WorkOrderStatus } from "@/types";
+
+const importSchema = z.object({
+  kind: z.enum(["clients", "vehicles", "workOrders"]),
+  rows: z.array(z.array(z.union([z.string(), z.number(), z.boolean(), z.null()]))).max(MAX_ROWS),
+  mapping: z.record(z.string(), z.number().int().min(-1)),
+  options: z.object({ pricesIncludeVat: z.boolean() }),
+  firstLine: z.number().int().min(1),
+});
+
+export interface ImportResult {
+  ok: boolean;
+  message: string;
+  created?: { clients: number; vehicles: number; workOrders: number };
+}
+
+/** Vuelve a revisar en el servidor lo que el navegador mostró en la vista previa y lo guarda. */
+export async function importData(input: unknown): Promise<ImportResult> {
+  const user = await currentUser();
+  if (!user || !can(user.role, "import")) return { ok: false, message: "No tienes permiso para cargar datos." };
+  const parsed = importSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: "El archivo enviado no tiene el formato esperado." };
+  const { kind, rows, mapping, options, firstLine } = parsed.data;
+
+  let sequence = 0;
+  const stamp = Date.now().toString(36);
+  const plan = planImport(kind, rows, mapping, await getImportSnapshot(), options, (p) => `${p}-${stamp}${(++sequence).toString(36)}`, firstLine);
+  if (plan.warnings.some((w) => w.startsWith("Falta"))) return { ok: false, message: plan.warnings[0] };
+  const created = { clients: plan.clients.length, vehicles: plan.vehicles.length, workOrders: plan.workOrders.length };
+  if (created.clients + created.vehicles + created.workOrders === 0) return { ok: false, message: "No hay registros nuevos para guardar." };
+
+  try {
+    // Las OTs importadas quedan a nombre de quien hizo la carga en el historial
+    for (const w of plan.workOrders) w.history = w.history.map((h) => ({ ...h, userId: user.id }));
+    await saveImported(plan);
+  } catch (error) {
+    return { ok: false, message: saveError(error).message ?? "No se pudo guardar." };
+  }
+  revalidatePath("/", "layout");
+  return { ok: true, message: "Datos cargados.", created };
+}
 
 /** Mensaje entendible cuando falla el guardado (por ejemplo, Google Sheets no responde). */
 function saveError(error: unknown): FormState {
