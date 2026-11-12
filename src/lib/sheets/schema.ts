@@ -35,7 +35,11 @@ export interface Table {
 export const TABLES = {
   users: {
     tab: "Usuarios",
-    columns: [["id", "id", "text"], ["nombre", "name", "text"], ["correo", "email", "text"], ["rol", "role", "text"], ["telefono", "phone", "text"], ["activo", "active", "bool"]],
+    columns: [
+      ["id", "id", "text"], ["nombre", "name", "text"], ["correo", "email", "text"], ["rol", "role", "text"], ["telefono", "phone", "text"], ["activo", "active", "bool"],
+      // Contraseña cifrada: la asigna el administrador desde la herramienta; no se edita a mano.
+      ["clave_cifrada", "passwordHash", "optText"],
+    ],
   },
   clients: {
     tab: "Clientes",

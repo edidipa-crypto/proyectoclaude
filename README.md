@@ -113,6 +113,16 @@ Responde `202` con el documento normalizado (líneas, subtotales por tarifa de I
 
 Estados: `pendiente | enviado | aceptado | aceptado_con_notificaciones | rechazado | error`.
 
+## Inicio de sesión
+
+- Con `ADMIN_PASSWORD` definida, `/login` pide usuario y contraseña. El administrador entra
+  con el usuario `admin` y esa contraseña.
+- El administrador asigna la contraseña de cada persona en **Usuarios y roles**. Cada una entra
+  con su correo (columna `correo` de la pestaña Usuarios). Se guardan cifradas con scrypt.
+- La sesión es una cookie firmada con `SESSION_SECRET` (o, si falta, derivada de
+  `ADMIN_PASSWORD`) y dura 7 días.
+- Sin `ADMIN_PASSWORD` (uso local de prueba), `/login` deja elegir un rol sin contraseña.
+
 ## Datos reales en Google Sheets
 
 Con `GOOGLE_SHEETS_ID`, `GOOGLE_SERVICE_ACCOUNT_EMAIL` y `GOOGLE_PRIVATE_KEY` definidas

@@ -1,5 +1,6 @@
 import { Check, Minus } from "lucide-react";
 
+import { SetPasswordForm } from "@/components/auth/set-password-form";
 import { NoAccess } from "@/components/layout/no-access";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +36,7 @@ export default async function UsersPage() {
                 <TableRow className="hover:bg-transparent">
                   <TableHead>Nombre</TableHead>
                   <TableHead>Rol</TableHead>
+                  <TableHead>Contraseña</TableHead>
                   <TableHead>Estado</TableHead>
                 </TableRow>
               </TableHeader>
@@ -43,16 +45,27 @@ export default async function UsersPage() {
                   <TableRow key={u.id}>
                     <TableCell>
                       <p className="font-medium">{u.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {u.email} · {u.phone}
-                      </p>
+                      <p className="text-xs text-muted-foreground">{u.email || "Sin correo (es su usuario para entrar)"}</p>
                     </TableCell>
                     <TableCell className="whitespace-nowrap">{ROLE_LABEL[u.role]}</TableCell>
+                    <TableCell>{u.passwordHash ? <Badge variant="success">Asignada</Badge> : <Badge variant="outline">Sin asignar</Badge>}</TableCell>
                     <TableCell>{u.active ? <Badge variant="success">Activo</Badge> : <Badge variant="outline">Inactivo</Badge>}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
+          </CardContent>
+        </Card>
+        <Card className="xl:col-span-2 xl:order-last">
+          <CardHeader>
+            <CardTitle>Asignar o cambiar contraseña</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <SetPasswordForm users={users.filter((u) => u.active).map((u) => ({ id: u.id, label: `${u.name} · ${ROLE_LABEL[u.role]}` }))} />
+            <p className="mt-4 text-xs text-muted-foreground">
+              Cada persona entra con su <strong>correo</strong> y la contraseña que le asignes aquí. El administrador también puede entrar con el usuario{" "}
+              <strong>admin</strong> y la contraseña de administrador configurada en el servidor.
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -92,7 +105,7 @@ export default async function UsersPage() {
         </Card>
       </section>
       <p className="text-xs text-muted-foreground">
-        El técnico también puede abrir las OTs que tiene asignadas. En la Fase 1 podrás crear usuarios, asignar su rol y desactivarlos; cada uno entrará con su correo y contraseña.
+        El técnico también puede abrir las OTs que tiene asignadas. Para agregar personas, cambiar su rol, correo o desactivarlas, edita la pestaña Usuarios de la hoja de Google.
       </p>
     </>
   );

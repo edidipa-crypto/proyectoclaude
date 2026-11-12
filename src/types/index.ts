@@ -13,6 +13,8 @@ export interface AppUser {
   role: Role;
   phone: string;
   active: boolean;
+  /** Contraseña cifrada (scrypt); nunca se envía al navegador */
+  passwordHash?: string;
 }
 
 // --- Clientes y vehículos ----------------------------------------------------

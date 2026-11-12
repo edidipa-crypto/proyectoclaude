@@ -31,6 +31,17 @@ export function invalidate() {
 
 const quote = (tab: string) => `'${tab}'`;
 
+/** 0 → A, 25 → Z, 26 → AA… */
+function columnLetter(index: number): string {
+  let n = index + 1;
+  let s = "";
+  while (n > 0) {
+    s = String.fromCharCode(65 + ((n - 1) % 26)) + s;
+    n = Math.floor((n - 1) / 26);
+  }
+  return s;
+}
+
 /** Crea las pestañas que falten con sus encabezados y los usuarios iniciales. */
 async function ensureStructure(config: SheetsConfig) {
   if (state.__sheetsReady) return;
@@ -65,13 +76,23 @@ export async function loadDatabase(config: SheetsConfig): Promise<Database> {
 
   const headers = {} as Record<TableName, string[]>;
   const rows = {} as TableRows;
+  const newHeaders: { range: string; values: string[][] }[] = [];
   NAMES.forEach((name, i) => {
     const [head = [], ...body] = res.valueRanges[i]?.values ?? [];
     headers[name] = head.map((h) => String(h).trim());
+    // Columnas agregadas en versiones nuevas de la herramienta: se suman al final de la fila 1
+    const missing = TABLES[name].columns.map((c) => c[0]).filter((h) => !headers[name].includes(h));
+    if (missing.length) {
+      newHeaders.push({ range: `${quote(TABLES[name].tab)}!${columnLetter(headers[name].length)}1`, values: [missing] });
+      headers[name] = [...headers[name], ...missing];
+    }
     rows[name] = body
       .filter((r) => r.some((c) => c !== "" && c !== null && c !== undefined))
       .map((r) => fromRow(TABLES[name], headers[name], r));
   });
+  if (newHeaders.length) {
+    await sheetsRequest(config, "/values:batchUpdate", { method: "POST", body: { valueInputOption: "RAW", data: newHeaders } });
+  }
 
   const db = assemble(rows);
   state.__sheets = { db, headers, loadedAt: Date.now() };
@@ -98,7 +119,7 @@ export async function updateRow(config: SheetsConfig, name: TableName, record: R
   const head = await currentHeaders(config, name);
   const idCol = head.indexOf("id");
   if (idCol < 0) throw new Error(`La pestaña ${TABLES[name].tab} no tiene columna "id"`);
-  const column = String.fromCharCode(65 + idCol);
+  const column = columnLetter(idCol);
   const ids = await sheetsRequest<{ values?: unknown[][] }>(config, `/values/${encodeURIComponent(`${quote(TABLES[name].tab)}!${column}:${column}`)}`);
   const rowIndex = (ids.values ?? []).findIndex((r) => String(r[0]) === record.id);
   if (rowIndex < 1) throw new Error(`No se encontró ${record.id} en ${TABLES[name].tab}`);

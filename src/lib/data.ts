@@ -39,6 +39,22 @@ export async function getUser(id: string) {
   return (await db()).users.find((u) => u.id === id);
 }
 
+/** Usuario por correo (sin importar mayúsculas), para iniciar sesión. */
+export async function findUserByEmail(email: string) {
+  const wanted = email.trim().toLowerCase();
+  if (!wanted) return undefined;
+  return (await db()).users.find((u) => u.email.trim().toLowerCase() === wanted);
+}
+
+export async function setUserPassword(userId: string, passwordHash: string) {
+  const d = await db();
+  const user = d.users.find((u) => u.id === userId);
+  if (!user) throw new Error("Usuario no encontrado");
+  const config = sheetsConfig();
+  if (config) await updateRow(config, "users", { ...user, passwordHash } as unknown as Plain & { id: string });
+  else user.passwordHash = passwordHash;
+}
+
 // --- Clientes y vehículos --------------------------------------------------------
 
 export function clientDocument(c: Client) {

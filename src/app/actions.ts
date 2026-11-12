@@ -1,6 +1,5 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -11,17 +10,21 @@ import {
   createClient,
   createVehicle,
   createWorkOrder,
+  findUserByEmail,
   getClient,
   getClients,
   getImportSnapshot,
   getUser,
+  getUsers,
   getVehicles,
   getWorkOrder,
   saveImported,
+  setUserPassword,
 } from "@/lib/data";
 import { MAX_ROWS, planImport } from "@/lib/import";
+import { hashPassword, safeEqual, verifyPassword } from "@/lib/password";
 import { can, HOME_BY_ROLE, NEXT_STATUSES, technicianCanMoveTo } from "@/lib/permissions";
-import { currentUser, SESSION_COOKIE } from "@/lib/session";
+import { currentUser, endSession, passwordLoginEnabled, startSession } from "@/lib/session";
 import { clientSchema, fieldErrors, newWorkOrderSchema, vehicleSchema } from "@/lib/validation";
 import type { WorkOrderStatus } from "@/types";
 
@@ -74,18 +77,70 @@ function saveError(error: unknown): FormState {
 export interface FormState {
   errors?: Record<string, string>;
   message?: string;
+  /** El mensaje es de éxito, no de error */
+  ok?: boolean;
 }
 
-export async function signIn(formData: FormData) {
+const LOGIN_ERROR = "Usuario o contraseña incorrectos.";
+
+/**
+ * Entrar con usuario y contraseña.
+ * - Usuario "admin" + ADMIN_PASSWORD (variable de entorno): entra el primer administrador activo.
+ * - Correo + la contraseña que el administrador le asignó a esa persona.
+ */
+export async function signIn(_prev: FormState, formData: FormData): Promise<FormState> {
+  const login = String(formData.get("login") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+  if (!login || !password) return { message: "Escribe tu usuario y tu contraseña." };
+
+  let userId: string | undefined;
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  if (login.toLowerCase() === "admin" && adminPassword && safeEqual(password, adminPassword)) {
+    userId = (await getUsers()).find((u) => u.role === "admin" && u.active)?.id;
+  } else {
+    const user = await findUserByEmail(login);
+    if (user?.active && (await verifyPassword(password, user.passwordHash))) userId = user.id;
+  }
+  if (!userId) {
+    await new Promise((r) => setTimeout(r, 800)); // frena los intentos repetidos
+    return { message: LOGIN_ERROR };
+  }
+  const user = (await getUser(userId))!;
+  startSession(user.id);
+  redirect(HOME_BY_ROLE[user.role]);
+}
+
+/** Solo sin contraseña de administrador configurada (uso local de prueba): elegir un rol. */
+export async function signInDemo(formData: FormData) {
+  if (passwordLoginEnabled()) redirect("/login");
   const user = await getUser(String(formData.get("userId")));
   if (!user || !user.active) redirect("/login");
-  cookies().set(SESSION_COOKIE, user.id, { httpOnly: true, sameSite: "lax", path: "/" });
+  startSession(user.id);
   redirect(HOME_BY_ROLE[user.role]);
 }
 
 export async function signOut() {
-  cookies().delete(SESSION_COOKIE);
+  endSession();
   redirect("/login");
+}
+
+/** El administrador asigna o cambia la contraseña de una persona. */
+export async function setPassword(_prev: FormState, formData: FormData): Promise<FormState> {
+  const admin = await currentUser();
+  if (!admin || !can(admin.role, "users")) return { message: "No tienes permiso para cambiar contraseñas." };
+  const userId = String(formData.get("userId") ?? "");
+  const password = String(formData.get("password") ?? "");
+  const target = await getUser(userId);
+  if (!target) return { message: "Elige la persona." };
+  if (!target.email.trim()) return { errors: { userId: "Esa persona no tiene correo; agrégalo en la pestaña Usuarios de la hoja: es su usuario para entrar." } };
+  if (password.length < 8) return { errors: { password: "Mínimo 8 caracteres." } };
+  try {
+    await setUserPassword(userId, await hashPassword(password));
+  } catch (error) {
+    return saveError(error);
+  }
+  revalidatePath("/users");
+  return { ok: true, message: `Listo: ${target.name} ya puede entrar con ${target.email} y esa contraseña.` };
 }
 
 export async function saveClient(_prev: FormState, formData: FormData): Promise<FormState> {
