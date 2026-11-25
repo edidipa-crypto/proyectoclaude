@@ -95,7 +95,8 @@ export async function signIn(_prev: FormState, formData: FormData): Promise<Form
 
   let userId: string | undefined;
   const adminPassword = process.env.ADMIN_PASSWORD;
-  if (login.toLowerCase() === "admin" && adminPassword && safeEqual(password, adminPassword)) {
+  // La contraseña de administrador es el secreto: sirve con "admin" o con el correo del dueño
+  if (adminPassword && safeEqual(password, adminPassword)) {
     userId = (await getUsers()).find((u) => u.role === "admin" && u.active)?.id;
   } else {
     const user = await findUserByEmail(login);

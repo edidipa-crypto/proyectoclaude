@@ -11,7 +11,7 @@ export function LoginForm() {
   return (
     <form action={action} className="grid gap-4">
       {state.message && <p className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{state.message}</p>}
-      <Field id="login" label="Usuario o correo" hint="El administrador entra con el usuario: admin">
+      <Field id="login" label="Usuario o correo" hint="El administrador puede escribir admin o su correo">
         <Input id="login" name="login" autoComplete="username" autoCapitalize="none" required />
       </Field>
       <Field id="password" label="Contraseña">
